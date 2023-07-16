@@ -33,6 +33,59 @@ async function run() {
     try {
 
 
+        const productCollection = client.db('computer_shop').collection('products')
+
+        // Get all products
+        app.get('/products', async (req, res) => {
+            const result = await productCollection.find().toArray()
+            res.send(result)
+        })
+
+        // Save a product in database
+        app.post('/products', async (req, res) => {
+            const product = req.body
+            const result = await productCollection.insertOne(product)
+            res.send(result)
+        })
+
+
+        // Get user posted products
+        app.get('/products/:email', async (req, res) => {
+            const email = req.params.email
+            const query = { email: email }
+            const result = await productCollection.find(query).toArray()
+            res.send(result)
+        })
+
+
+
+        // update class
+        app.put('/products/:id', async (req, res) => {
+            const id = req.params.id
+            const productsName = req.body
+            const price = req.body
+            const availableProduct = req.body
+            
+            const query = { _id: new ObjectId(id) }
+            const options = { upsert: true }
+            const updateDoc = {
+                $set: productsName,
+                $set: price,
+                $set: availableProduct
+            }
+            const result = await productCollection.updateOne(query, updateDoc, options)
+            res.send(result)
+        })
+
+
+        // delete product
+        app.delete('/products/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { _id: new ObjectId(id) }
+            const result = await productCollection.deleteOne(query)
+            console.log(result)
+            res.send(result)
+        })
 
 
 
