@@ -3,7 +3,7 @@ const app = express()
 const cors = require('cors')
 require('dotenv').config()
 const jwt = require('jsonwebtoken')
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const port = process.env.PORT || 5000
 
 
@@ -43,16 +43,14 @@ function verifyJWT(req, res, next) {
     const token = authorization.split(' ')[1]
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
         console.log(err)
-        if(err){
-            return res.status(403).send({error: 'unauthorized access'})
+        if (err) {
+            return res.status(403).send({ error: 'unauthorized access' })
         }
 
-        console.log({decoded})
+        console.log({ decoded })
         req.decoded = decoded
         next()
     })
-
-
 }
 
 
@@ -67,14 +65,7 @@ async function run() {
 
 
         const productCollection = client.db('computer_shop').collection('products')
-
-
-        // generate jwt 
-        app.post('/generate-jwt', async (req, res) => {
-            const body = req.body
-            const token = jwt.sign(body, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1hr" })
-            res.send({ token })
-        })
+        const cartCollection = client.db('computer_shop').collection('cart')
 
         // sign jwt token
         app.post('/jwt', async (req, res) => {
@@ -133,6 +124,45 @@ async function run() {
             const result = await productCollection.deleteOne(query)
             console.log(result)
             res.send(result)
+        })
+
+
+        // save cart product on db
+        app.post('/save-cart', async (req, res) => {
+            const product = req.body
+            const cart = await cartCollection.insertOne(product)
+            res.send(cart)
+        })
+
+        // get selected cart product 
+        app.get('/save-cart/:email', verifyJWT, async (req, res) => {
+            const myEmail = req.params.email
+            
+            if (!myEmail) {
+                return res
+                    .status(403)
+                    .send({ error: "no info of the customer found!" })
+            }
+
+            if (req.decoded.email !== myEmail) {
+                return res.status(403).send({ error: "Unauthorized access!" })
+            }
+
+            const queryFilter = { buyer: myEmail }
+
+            // const myCart = await cartCollection.find({purchasedBy:myEmail}).toArray()
+            const myCart = await cartCollection
+                .aggregate([
+                    { $match: queryFilter },
+                    {
+                        $facet: {
+                            documents: [{ $skip: 0 }, { $limit: 10 }], // Example: find the first 10 documents
+                            totalCount: [{ $count: "count" }],
+                        },
+                    },
+                ])
+                .toArray()
+            res.send(myCart)
         })
 
 
